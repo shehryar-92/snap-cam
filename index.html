@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Snap Cam | Browser-Based Photography</title>
+
+<!--
+  Content-Security-Policy: defense-in-depth even though this app has no
+  backend and no user text input. Explicitly limits what this page is
+  allowed to load/run, so if a bug ever got introduced, the blast radius
+  is contained.
+-->
+<meta http-equiv="Content-Security-Policy" content="
+  default-src 'self';
+  script-src 'self' https://cdn.tailwindcss.com;
+  style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+  font-src https://fonts.gstatic.com;
+  img-src 'self' blob:;
+  media-src 'self' blob:;
+  connect-src 'self';
+  object-src 'none';
+  base-uri 'self';
+  form-action 'self';
+">
+
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "on-tertiary": "#ffffff",
+                    "primary-fixed": "#dae2ff",
+                    "primary-container": "#0052cc",
+                    "error": "#ba1a1a",
+                    "surface-tint": "#0c56d0",
+                    "inverse-surface": "#2f3034",
+                    "primary-fixed-dim": "#b2c5ff",
+                    "on-secondary-fixed": "#410003",
+                    "surface-container-high": "#e8e8ec",
+                    "background": "#f9f9fd",
+                    "surface-dim": "#d9dade",
+                    "secondary-fixed": "#ffdad6",
+                    "on-error": "#ffffff",
+                    "on-surface": "#1a1c1f",
+                    "on-background": "#1a1c1f",
+                    "on-secondary-fixed-variant": "#93000f",
+                    "secondary-container": "#da3533",
+                    "tertiary-container": "#a33500",
+                    "on-tertiary-fixed": "#380d00",
+                    "secondary": "#b6171e",
+                    "on-surface-variant": "#434654",
+                    "on-primary-fixed": "#001848",
+                    "surface-container-lowest": "#ffffff",
+                    "primary": "#003d9b",
+                    "surface": "#f9f9fd",
+                    "secondary-fixed-dim": "#ffb3ac",
+                    "tertiary-fixed": "#ffdbcf",
+                    "outline-variant": "#c3c6d6",
+                    "on-primary-container": "#c4d2ff",
+                    "surface-container-low": "#f3f3f7",
+                    "on-secondary": "#ffffff",
+                    "on-primary-fixed-variant": "#0040a2",
+                    "inverse-primary": "#b2c5ff",
+                    "error-container": "#ffdad6",
+                    "on-primary": "#ffffff",
+                    "outline": "#737685",
+                    "surface-container-highest": "#e2e2e6",
+                    "surface-bright": "#f9f9fd",
+                    "surface-container": "#ededf2",
+                    "tertiary-fixed-dim": "#ffb59b",
+                    "inverse-on-surface": "#f0f0f4",
+                    "on-secondary-container": "#fffbff",
+                    "tertiary": "#7b2600",
+                    "on-tertiary-fixed-variant": "#812800",
+                    "on-tertiary-container": "#ffc6b2",
+                    "surface-variant": "#e2e2e6",
+                    "on-error-container": "#93000a"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.125rem",
+                    "lg": "0.25rem",
+                    "xl": "0.5rem",
+                    "full": "0.75rem"
+            },
+            "spacing": {
+                    "base": "8px",
+                    "margin-desktop": "48px",
+                    "md": "16px",
+                    "lg": "24px",
+                    "xl": "32px",
+                    "max-width": "1280px",
+                    "xs": "4px",
+                    "sm": "8px",
+                    "margin-mobile": "16px",
+                    "gutter": "24px"
+            },
+            "fontFamily": {
+                    "label-sm": ["Inter"],
+                    "headline-md": ["Inter"],
+                    "headline-lg": ["Inter"],
+                    "body-sm": ["Inter"],
+                    "label-md": ["Inter"],
+                    "body-lg": ["Inter"],
+                    "display": ["Inter"],
+                    "body-md": ["Inter"]
+            }
+          }
+        }
+      }
+    </script>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body class="bg-background text-on-surface flex flex-col min-h-screen">
+<!-- TopAppBar -->
+<header class="w-full top-0 border-b border-outline-variant bg-surface">
+<div class="flex items-center justify-between h-16 w-full px-margin-desktop max-w-max-width mx-auto">
+<span class="font-headline-md text-headline-md font-bold text-on-surface">Snap Cam</span>
+<div class="hidden"></div>
+</div>
+</header>
+<!-- Main Content Area -->
+<main class="flex-grow flex flex-col items-center justify-center px-margin-mobile md:px-margin-desktop py-xl">
+<div class="w-full max-w-4xl">
+<!-- 16:9 Frame Container -->
+<div class="relative aspect-video w-full border border-outline bg-surface-container-low flex flex-col items-center justify-center overflow-hidden rounded-lg" id="camera-frame">
+
+<!-- State 1: Permission Off -->
+<div class="flex flex-col items-center space-y-md text-center px-lg" id="state-permission">
+<span class="material-symbols-outlined text-outline text-6xl">videocam_off</span>
+<p class="font-body-md text-body-md text-on-surface-variant">Camera access is off</p>
+<button class="bg-primary text-on-primary px-lg py-sm font-label-md text-label-md rounded transition-colors hover:bg-primary-container" id="btn-turn-on">
+                        Turn On Camera
+                    </button>
+</div>
+
+<!-- State: Error (permission denied / no camera found) -->
+<div class="hidden-state flex-col items-center space-y-md text-center px-lg" id="state-error">
+<span class="material-symbols-outlined text-error text-6xl">error</span>
+<p class="font-body-md text-body-md text-on-surface-variant" id="error-message">Camera access was denied.</p>
+<button class="bg-primary text-on-primary px-lg py-sm font-label-md text-label-md rounded transition-colors hover:bg-primary-container" id="btn-try-again">
+                        Try Again
+                    </button>
+</div>
+
+<!-- State 2: Active Live Feed -->
+<div class="hidden-state absolute inset-0 w-full h-full" id="state-active">
+<div class="absolute top-4 left-4 z-10 flex items-center bg-on-surface/80 text-white px-sm py-xs rounded-sm space-x-sm">
+<span class="w-2 h-2 rounded-full bg-secondary animate-pulse"></span>
+<span class="font-label-sm text-label-sm uppercase tracking-wider">LIVE</span>
+</div>
+<video autoplay="" id="camera-video" muted="" playsinline=""></video>
+</div>
+
+<!-- State 3: Captured Photo Preview -->
+<div class="hidden-state absolute inset-0 w-full h-full" id="state-captured">
+<img alt="Captured photo preview" id="preview-image" src=""/>
+</div>
+
+</div>
+
+<!-- Controls Area (Synchronized with State) -->
+<div class="mt-xl flex flex-wrap justify-center gap-lg">
+<!-- Controls for Active State -->
+<div class="hidden-state flex gap-lg" id="controls-active">
+<button class="bg-primary text-on-primary px-xl py-md font-label-md text-label-md rounded transition-colors hover:bg-primary-container flex items-center gap-sm" id="btn-capture">
+<span class="material-symbols-outlined">photo_camera</span>
+                        Capture Photo
+                    </button>
+<button class="border border-outline bg-transparent text-primary px-xl py-md font-label-md text-label-md rounded transition-colors hover:bg-surface-container flex items-center gap-sm" id="btn-switch">
+<span class="material-symbols-outlined">flip_camera_ios</span>
+                        Switch Camera
+                    </button>
+</div>
+<!-- Controls for Captured State -->
+<div class="hidden-state flex gap-lg" id="controls-captured">
+<button class="bg-primary text-on-primary px-xl py-md font-label-md text-label-md rounded transition-colors hover:bg-primary-container flex items-center gap-sm" id="btn-download">
+<span class="material-symbols-outlined">download</span>
+                        Download Photo
+                    </button>
+<button class="border border-outline bg-transparent text-primary px-xl py-md font-label-md text-label-md rounded transition-colors hover:bg-surface-container flex items-center gap-sm" id="btn-retake">
+<span class="material-symbols-outlined">replay</span>
+                        Retake
+                    </button>
+</div>
+</div>
+</div>
+</main>
+<!-- Footer -->
+<footer class="w-full bottom-0 border-t border-outline-variant bg-surface mt-auto">
+<div class="flex justify-center items-center py-lg w-full px-margin-desktop max-w-max-width mx-auto">
+<p class="font-body-sm text-body-sm text-on-surface-variant">Runs entirely in your browser — nothing is uploaded or stored</p>
+</div>
+</footer>
+
+<script src="camera-helpers.js"></script>
+<script src="camera.js"></script>
+</body></html>
